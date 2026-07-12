@@ -1,0 +1,23 @@
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Chroma vector DB (regenerable local data)
+mcp_servers/chroma_db/
+**/mcp_servers/chroma_db/
+
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/

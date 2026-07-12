@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cloud Kitchen Simulator</title>
+<style>
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --border: #334155;
+    --text: #e2e8f0; --muted: #94a3b8;
+    --blue: #3b82f6; --amber: #f59e0b; --green: #22c55e;
+    --red: #ef4444; --slate: #475569; --purple: #a855f7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── Top bar ── */
+  #topbar { display: flex; align-items: center; gap: 16px; padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  #topbar h1 { font-size: 15px; font-weight: 700; color: var(--text); white-space: nowrap; }
+  #topbar h1 span { color: var(--green); }
+  .ctrl-group { display: flex; align-items: center; gap: 8px; }
+  .ctrl-group label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  select, input[type=range] { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 4px 8px; font-size: 12px; cursor: pointer; }
+  #speed-val { color: var(--amber); font-weight: 700; font-size: 12px; min-width: 28px; }
+  #run-btn { background: var(--green); color: #000; border: none; border-radius: 6px; padding: 6px 18px; font-weight: 700; font-size: 13px; cursor: pointer; transition: opacity .2s; }
+  #run-btn:disabled { opacity: .4; cursor: default; }
+  #run-btn.running { background: var(--red); color: #fff; }
+  #status-badge { margin-left: auto; padding: 4px 12px; border-radius: 99px; font-size: 11px; font-weight: 600; background: var(--border); color: var(--muted); }
+  #status-badge.running { background: #14532d; color: var(--green); }
+  #status-badge.done { background: #1e3a5f; color: var(--blue); }
+
+  /* ── Metrics strip ── */
+  #metrics-strip { display: flex; gap: 12px; padding: 10px 20px; background: var(--bg); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 16px; display: flex; flex-direction: column; gap: 2px; min-width: 130px; }
+  .metric-card .label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .metric-card .value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .metric-card .sub { font-size: 10px; color: var(--muted); }
+  #m-completed .value { color: var(--blue); }
+  #m-food .value { color: var(--amber); }
+  #m-courier .value { color: var(--green); }
+  #m-strategy .value { font-size: 14px; color: var(--purple); }
+
+  /* ── Main body ── */
+  #body { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── Kanban columns ── */
+  #pipeline { display: flex; gap: 0; flex: 1; overflow: hidden; }
+  .col { flex: 1; display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+  .col:last-child { border-right: none; }
+  .col-header { padding: 8px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--border); }
+  .col-header .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .col[data-col="received"] .dot { background: var(--blue); }
+  .col[data-col="prepping"] .dot { background: var(--amber); }
+  .col[data-col="ready"] .dot { background: var(--green); }
+  .col[data-col="done"] .dot { background: var(--slate); }
+  .col-header .count { margin-left: auto; background: var(--border); border-radius: 99px; padding: 1px 7px; font-size: 10px; color: var(--muted); }
+  .col-body { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+
+  /* ── Order cards ── */
+  .order-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px; cursor: default;
+    animation: fadeIn .3s ease; transition: border-color .3s, transform .15s;
+    border-left-width: 3px;
+  }
+  .order-card:hover { transform: translateX(2px); }
+  .order-card.col-received { border-left-color: var(--blue); }
+  .order-card.col-prepping { border-left-color: var(--amber); }
+  .order-card.col-ready    { border-left-color: var(--green); box-shadow: 0 0 8px #22c55e33; }
+  .order-card.col-done     { border-left-color: var(--slate); opacity: .7; }
+
+  .card-name { font-weight: 600; font-size: 12px; margin-bottom: 4px; }
+  .card-meta { font-size: 10px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+  .card-wait { font-size: 10px; color: var(--amber); margin-top: 3px; }
+
+  /* prep progress bar */
+  .prep-bar-wrap { background: var(--border); border-radius: 3px; height: 3px; margin-top: 5px; overflow: hidden; }
+  .prep-bar { height: 100%; background: var(--amber); border-radius: 3px; width: 0%; transition: none; }
+
+  @keyframes fadeIn { from { opacity:0; transform: translateY(-6px); } to { opacity:1; transform:none; } }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+  @keyframes readyPulse { 0%,100% { box-shadow: 0 0 6px #22c55e55; } 50% { box-shadow: 0 0 14px #22c55eaa; } }
+  .col-ready .order-card { animation: readyPulse 2s ease-in-out infinite; }
+  .col-prepping .order-card .prep-bar { animation: none; }
+
+  /* ── Right panel ── */
+  #right-panel { width: 280px; display: flex; flex-direction: column; border-left: 1px solid var(--border); flex-shrink: 0; }
+
+  /* ── Courier pool ── */
+  #courier-section { border-bottom: 1px solid var(--border); }
+  .section-header { padding: 8px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
+  #courier-pool { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px; min-height: 64px; max-height: 130px; overflow-y: auto; }
+  .courier-chip {
+    border-radius: 99px; padding: 3px 9px; font-size: 10px; font-weight: 600;
+    border: 1px solid; display: flex; align-items: center; gap: 4px;
+    transition: all .4s; animation: fadeIn .3s;
+  }
+  .courier-chip.en_route  { background: #451a0330; border-color: var(--amber); color: var(--amber); }
+  .courier-chip.waiting   { background: #14532d30; border-color: var(--green); color: var(--green); animation: fadeIn .3s; }
+  .courier-chip .cid { font-family: monospace; font-size: 9px; }
+  .courier-chip .status-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .courier-chip.en_route .status-dot  { background: var(--amber); animation: pulse 1.2s infinite; }
+  .courier-chip.waiting  .status-dot  { background: var(--green); }
+
+  /* ── Event log ── */
+  #event-log-section { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  #event-log { flex: 1; overflow-y: auto; padding: 6px 8px; font-family: monospace; font-size: 10px; display: flex; flex-direction: column; gap: 3px; }
+  .log-entry { border-radius: 4px; padding: 3px 6px; animation: fadeIn .2s; }
+  .log-entry.order_received  { color: var(--blue); }
+  .log-entry.order_prepping  { color: var(--amber); }
+  .log-entry.order_ready     { color: var(--green); }
+  .log-entry.order_picked_up { color: #6ee7b7; }
+  .log-entry.courier_dispatched { color: #fcd34d; }
+  .log-entry.courier_arrived    { color: #86efac; }
+  .log-entry.sim_complete    { color: var(--purple); font-weight: 700; }
+  .log-entry.error           { color: var(--red); }
+
+  .col-body::-webkit-scrollbar,
+  #event-log::-webkit-scrollbar,
+  #courier-pool::-webkit-scrollbar { width: 4px; }
+  .col-body::-webkit-scrollbar-track,
+  #event-log::-webkit-scrollbar-track,
+  #courier-pool::-webkit-scrollbar-track { background: transparent; }
+  .col-body::-webkit-scrollbar-thumb,
+  #event-log::-webkit-scrollbar-thumb,
+  #courier-pool::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div id="topbar">
+  <h1>☁ Cloud <span>Kitchen</span> Simulator</h1>
+  <div class="ctrl-group">
+    <label>Strategy</label>
+    <select id="strategy-select">
+      <option value="fifo">FIFO</option>
+      <option value="matched">Matched</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <label>Speed</label>
+    <input type="range" id="speed-range" min="1" max="8" step="1" value="3" style="width:80px" />
+    <span id="speed-val">3×</span>
+  </div>
+  <button id="run-btn">▶ Run</button>
+  <span id="status-badge">Idle</span>
+</div>
+
+<!-- Metrics strip -->
+<div id="metrics-strip">
+  <div class="metric-card" id="m-strategy">
+    <div class="label">Strategy</div>
+    <div class="value" id="v-strategy">—</div>
+    <div class="sub">dispatch mode</div>
+  </div>
+  <div class="metric-card" id="m-completed">
+    <div class="label">Completed</div>
+    <div class="value"><span id="v-completed">0</span> <span style="font-size:13px;color:var(--muted)">/&thinsp;<span id="v-total">—</span></span></div>
+    <div class="sub">orders picked up</div>
+  </div>
+  <div class="metric-card" id="m-food">
+    <div class="label">Avg Food Wait</div>
+    <div class="value"><span id="v-food">—</span></div>
+    <div class="sub">order ready → pickup</div>
+  </div>
+  <div class="metric-card" id="m-courier">
+    <div class="label">Avg Courier Wait</div>
+    <div class="value"><span id="v-courier">—</span></div>
+    <div class="sub">courier arrived → pickup</div>
+  </div>
+</div>
+
+<!-- Body -->
+<div id="body">
+
+  <!-- Kanban pipeline -->
+  <div id="pipeline">
+    <div class="col" data-col="received">
+      <div class="col-header"><div class="dot"></div>Received<span class="count" id="cnt-received">0</span></div>
+      <div class="col-body" id="col-received"></div>
+    </div>
+    <div class="col" data-col="prepping">
+      <div class="col-header"><div class="dot"></div>Prepping<span class="count" id="cnt-prepping">0</span></div>
+      <div class="col-body" id="col-prepping"></div>
+    </div>
+    <div class="col" data-col="ready">
+      <div class="col-header"><div class="dot"></div>Ready<span class="count" id="cnt-ready">0</span></div>
+      <div class="col-body" id="col-ready"></div>
+    </div>
+    <div class="col" data-col="done">
+      <div class="col-header"><div class="dot"></div>Picked Up<span class="count" id="cnt-done">0</span></div>
+      <div class="col-body" id="col-done"></div>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div id="right-panel">
+    <div id="courier-section">
+      <div class="section-header">🚗 Courier Pool</div>
+      <div id="courier-pool"><span style="color:var(--muted);font-size:10px;padding:4px">No active couriers</span></div>
+    </div>
+    <div id="event-log-section">
+      <div class="section-header">📋 Event Log</div>
+      <div id="event-log"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let ws = null;
+let simRunning = false;
+
+// Speed control
+const speedRange = $('speed-range');
+const speedVal = $('speed-val');
+speedRange.addEventListener('input', () => speedVal.textContent = speedRange.value + '×');
+
+// Run button
+$('run-btn').addEventListener('click', () => {
+  if (simRunning) return;
+  startSim();
+});
+
+function startSim() {
+  resetUI();
+  simRunning = true;
+  $('run-btn').disabled = true;
+  $('run-btn').textContent = '⟳ Running';
+  setStatus('running', 'Running');
+  $('v-strategy').textContent = $('strategy-select').value.toUpperCase();
+
+  ws = new WebSocket(`ws://${location.host}/ws/simulation`);
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({
+      strategy: $('strategy-select').value,
+      speed: parseFloat(speedRange.value),
+      seed: 42,
+    }));
+  };
+
+  ws.onmessage = e => handleEvent(JSON.parse(e.data));
+
+  ws.onerror = () => {
+    logEvent('error', '⚠ WebSocket error — is the server running?');
+    endSim();
+  };
+
+  ws.onclose = () => {
+    if (simRunning) endSim();
+  };
+}
+
+function endSim() {
+  simRunning = false;
+  $('run-btn').disabled = false;
+  $('run-btn').textContent = '▶ Run';
+  setStatus('done', 'Done');
+}
+
+function resetUI() {
+  ['received','prepping','ready','done'].forEach(col => {
+    $('col-' + col).innerHTML = '';
+    $('cnt-' + col).textContent = '0';
+  });
+  $('courier-pool').innerHTML = '<span style="color:var(--muted);font-size:10px;padding:4px">No active couriers</span>';
+  $('event-log').innerHTML = '';
+  $('v-completed').textContent = '0';
+  $('v-total').textContent = '—';
+  $('v-food').textContent = '—';
+  $('v-courier').textContent = '—';
+}
+
+function setStatus(cls, text) {
+  const el = $('status-badge');
+  el.className = cls;
+  el.textContent = text;
+}
+
+// ── Event handlers ──────────────────────────────────────────────────────────
+
+const orders = {}; // id → {name, prep_time_s, col, element, prepStart}
+const couriers = {}; // id → element
+
+function handleEvent(ev) {
+  switch(ev.type) {
+
+    case 'sim_started':
+      $('v-total').textContent = ev.total;
+      $('v-strategy').textContent = ev.strategy.toUpperCase();
+      logEvent('sim_complete', `▶ Simulation started — strategy: ${ev.strategy}, orders: ${ev.total}`);
+      break;
+
+    case 'order_received': {
+      const card = makeCard(ev.id, ev.name, ev.prep_time_s, 'received');
+      orders[ev.id] = { name: ev.name, prep_time_s: ev.prep_time_s, col: 'received', el: card };
+      addToCol('received', card);
+      logEvent('order_received', `📦 ${ev.name} received (prep ${ev.prep_time_s}s)`);
+      break;
+    }
+
+    case 'order_prepping': {
+      const o = orders[ev.id];
+      if (!o) break;
+      moveCard(ev.id, 'prepping');
+      o.prepStart = Date.now();
+      // animate prep bar
+      const bar = o.el.querySelector('.prep-bar');
+      if (bar) {
+        const durationMs = (o.prep_time_s * 1000) / parseFloat(speedRange.value);
+        bar.style.transition = `width ${durationMs}ms linear`;
+        requestAnimationFrame(() => bar.style.width = '100%');
+      }
+      logEvent('order_prepping', `🍳 ${o.name} prepping…`);
+      break;
+    }
+
+    case 'order_ready': {
+      const o = orders[ev.id];
+      if (!o) break;
+      moveCard(ev.id, 'ready');
+      // reset bar to show ready state
+      const bar = o.el.querySelector('.prep-bar');
+      if (bar) { bar.style.transition = 'none'; bar.style.width = '100%'; bar.style.background = 'var(--green)'; }
+      logEvent('order_ready', `✅ ${o.name} ready — waiting for pickup`);
+      break;
+    }
+
+    case 'order_picked_up': {
+      const o = orders[ev.order_id];
+      if (!o) break;
+      // update card with wait times before moving
+      const waitEl = o.el.querySelector('.card-wait');
+      if (waitEl) waitEl.textContent = `🍔 ${ev.food_wait_ms}ms wait · 🚗 ${ev.courier_wait_ms}ms`;
+      moveCard(ev.order_id, 'done');
+      logEvent('order_picked_up', `🎉 ${o.name} picked up | food: ${ev.food_wait_ms}ms · courier: ${ev.courier_wait_ms}ms`);
+      break;
+    }
+
+    case 'courier_dispatched': {
+      // remove placeholder if exists
+      const pool = $('courier-pool');
+      const placeholder = pool.querySelector('span');
+      if (placeholder) placeholder.remove();
+
+      const chip = document.createElement('div');
+      chip.className = 'courier-chip en_route';
+      chip.id = 'courier-' + ev.id;
+      chip.title = ev.assigned_order_id ? `Assigned to order ${ev.assigned_order_id.slice(0,6)}` : 'Unassigned (FIFO)';
+      chip.innerHTML = `<div class="status-dot"></div><span class="cid">${ev.id.slice(0,6)}</span><span style="color:var(--muted)">~${ev.eta_s}s</span>`;
+      pool.appendChild(chip);
+      couriers[ev.id] = chip;
+      logEvent('courier_dispatched', `🚗 Courier ${ev.id.slice(0,6)} dispatched (ETA ~${ev.eta_s}s)`);
+      break;
+    }
+
+    case 'courier_arrived': {
+      const chip = couriers[ev.id];
+      if (chip) {
+        chip.className = 'courier-chip waiting';
+        chip.innerHTML = `<div class="status-dot"></div><span class="cid">${ev.id.slice(0,6)}</span><span style="color:var(--green)">here</span>`;
+      }
+      logEvent('courier_arrived', `🏠 Courier ${ev.id.slice(0,6)} arrived — waiting`);
+      break;
+    }
+
+    case 'metrics_update':
+      $('v-completed').textContent = ev.completed;
+      $('v-total').textContent = ev.total;
+      $('v-food').textContent = ev.avg_food_wait_ms >= 1000
+        ? (ev.avg_food_wait_ms/1000).toFixed(1)+'s'
+        : ev.avg_food_wait_ms + 'ms';
+      $('v-courier').textContent = ev.avg_courier_wait_ms >= 1000
+        ? (ev.avg_courier_wait_ms/1000).toFixed(1)+'s'
+        : ev.avg_courier_wait_ms + 'ms';
+      break;
+
+    case 'sim_complete':
+      // remove lingering couriers
+      document.querySelectorAll('.courier-chip').forEach(c => c.remove());
+      $('courier-pool').innerHTML = '<span style="color:var(--muted);font-size:10px;padding:4px">Simulation ended</span>';
+      logEvent('sim_complete', `🏁 Done — Avg food: ${ev.avg_food_wait_ms}ms · Avg courier: ${ev.avg_courier_wait_ms}ms`);
+      endSim();
+      break;
+
+    case 'error':
+      logEvent('error', '⚠ ' + ev.message);
+      endSim();
+      break;
+  }
+}
+
+// ── DOM helpers ─────────────────────────────────────────────────────────────
+
+function makeCard(id, name, prep_time_s, col) {
+  const el = document.createElement('div');
+  el.className = `order-card col-${col}`;
+  el.id = 'order-' + id;
+  el.innerHTML = `
+    <div class="card-name">${emojiFor(name)} ${name}</div>
+    <div class="card-meta"><span>prep: ${prep_time_s}s</span><span class="order-id" style="font-family:monospace;font-size:9px;color:var(--border)">${id.slice(0,6)}</span></div>
+    <div class="card-wait"></div>
+    <div class="prep-bar-wrap"><div class="prep-bar"></div></div>
+  `;
+  return el;
+}
+
+function addToCol(col, el) {
+  const container = $('col-' + col);
+  container.appendChild(el);
+  updateCount(col);
+}
+
+function moveCard(orderId, toCol) {
+  const o = orders[orderId];
+  if (!o) return;
+  const fromCol = o.col;
+
+  // remove from old col DOM
+  const el = $('order-' + orderId);
+  if (!el) return;
+  el.remove();
+
+  // update class
+  el.className = `order-card col-${toCol}`;
+  o.col = toCol;
+
+  // add to new col
+  $('col-' + toCol).appendChild(el);
+  updateCount(fromCol);
+  updateCount(toCol);
+}
+
+function updateCount(col) {
+  const count = $('col-' + col)?.children.length ?? 0;
+  const cnt = $('cnt-' + col);
+  if (cnt) cnt.textContent = count;
+}
+
+function logEvent(type, msg) {
+  const log = $('event-log');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry ' + type;
+  const time = new Date().toLocaleTimeString('en-US', {hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  entry.textContent = `${time}  ${msg}`;
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+}
+
+const FOOD_EMOJI = {
+  burger:'🍔', pizza:'🍕', salad:'🥗', pasta:'🍝', tacos:'🌮',
+  sushi:'🍣', wings:'🍗', sandwich:'🥪', steak:'🥩', ramen:'🍜',
+  falafel:'🧆', burrito:'🌯', pho:'🍲', 'fish & chips':'🐟', 'pad thai':'🍜',
+  dumplings:'🥟', 'caesar salad':'🥗', curry:'🍛', 'hot dog':'🌭', cheesecake:'🍰',
+};
+function emojiFor(name) {
+  return FOOD_EMOJI[name.toLowerCase()] || '🍽';
+}
+</script>
+</body>
+</html>
