@@ -1,0 +1,12 @@
+[
+  {"id": "O0001", "name": "Margherita Pizza", "items": ["pizza_dough", "tomato", "mozzarella"], "prepTime": 12, "total_cents": 1450},
+  {"id": "O0002", "name": "Chicken Burrito", "items": ["tortilla", "chicken", "rice", "beans"], "prepTime": 8, "total_cents": 1100},
+  {"id": "O0003", "name": "Pad Thai", "items": ["noodles", "egg", "peanut", "shrimp"], "prepTime": 10, "total_cents": 1300},
+  {"id": "O0004", "name": "Caesar Salad", "items": ["lettuce", "crouton", "parmesan"], "prepTime": 4, "total_cents": 900},
+  {"id": "O0005", "name": "Beef Ramen", "items": ["ramen", "beef", "egg", "scallion"], "prepTime": 11, "total_cents": 1500},
+  {"id": "O0006", "name": "Veggie Bowl", "items": ["quinoa", "avocado", "chickpea"], "prepTime": 6, "total_cents": 1050},
+  {"id": "O0007", "name": "Margherita Pizza", "items": ["pizza_dough", "tomato", "mozzarella"], "prepTime": 12, "total_cents": 1450},
+  {"id": "O0008", "name": "Chicken Burrito", "items": ["tortilla", "chicken", "rice", "beans"], "prepTime": 8, "total_cents": 1100},
+  {"id": "O0009", "name": "Pad Thai", "items": ["noodles", "egg", "peanut", "shrimp"], "prepTime": 10, "total_cents": 1300},
+  {"id": "O0010", "name": "Caesar Salad", "items": ["lettuce", "crouton", "parmesan"], "prepTime": 4, "total_cents": 900}
+]

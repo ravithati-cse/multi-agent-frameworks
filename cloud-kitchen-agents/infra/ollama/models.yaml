@@ -1,0 +1,25 @@
+# Ollama model assignment per agent role (EngDesign §12).
+# Pin exact model + temperature per role; identical across all 5 framework runs so the
+# comparison isolates framework effects from model effects (PRD §9).
+#
+# Usage: ollama pull each model, run `ollama serve`, then point ModelConfig.base_url at
+#   http://localhost:11434/v1  and set provider: ollama.
+
+endpoint: http://localhost:11434/v1
+provider: ollama
+
+roles:
+  # narrow lookup roles -> lighter/faster model
+  order_intake:   { model: llama3.1:8b,  temperature: 0.0 }
+  inventory:      { model: llama3.1:8b,  temperature: 0.0 }
+  kitchen:        { model: llama3.1:8b,  temperature: 0.0 }
+  customer:       { model: llama3.1:8b,  temperature: 0.7 }   # persona variety
+  # plan / negotiate / judge roles -> stronger reasoning model
+  dispatch:       { model: qwen2.5:14b,  temperature: 0.1 }
+  payment:        { model: qwen2.5:14b,  temperature: 0.0 }   # refund-approval reasoning
+  support:        { model: qwen2.5:14b,  temperature: 0.2 }
+  ops_supervisor: { model: qwen2.5:14b,  temperature: 0.2 }
+
+pull:
+  - llama3.1:8b
+  - qwen2.5:14b

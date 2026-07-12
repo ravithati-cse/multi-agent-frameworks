@@ -1,0 +1,24 @@
+# Core (required for the offline/reproducible path — engine, tool layer, harness, dashboard)
+pydantic>=2.5
+fastapi>=0.110
+uvicorn[standard]>=0.27
+httpx>=0.26
+pytest>=8.0
+
+# MCP servers (optional — only needed to run the real stdio MCP servers)
+# mcp>=1.2
+
+# Live models (optional — only needed when provider != "mock")
+# Ollama/vLLM use the OpenAI-compatible HTTP API via httpx (already above)
+
+# Framework adapters (optional — install only the lane you're running)
+# --- LangGraph lane is wired for LIVE runs (agents/langgraph/graph.py). Install to run it: ---
+# langgraph>=0.2
+#   (optional) langchain-openai>=0.1  # only if you swap the decide node to ChatOpenAI
+# crewai>=0.60
+# ag2>=0.5                      # (AutoGen successor; verify maintenance status first)
+# openai-agents>=0.1           # Claude/OpenAI Agent SDK
+# strands-agents>=0.1
+
+# Real vector store (optional — v1 ships a dependency-free KnowledgeStore)
+# chromadb>=0.5 ; sentence-transformers>=2.6
